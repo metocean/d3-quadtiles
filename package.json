@@ -15,5 +15,6 @@
   "bugs": {
     "url": "https://github.com/metocean/d3-quadtiles/issues"
   },
+  "readmeFilename": "README.md",
   "homepage": "https://github.com/metocean/d3-quadtiles#readme"
 }
