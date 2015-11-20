@@ -8,16 +8,17 @@ mercatorφ = function(y) {
 };
 
 module.exports = d3.quadTiles = function(projection, zoom) {
-  var invisible, precision, step, stream, tiles, visit, width;
+  var extent, precision, step, stream, tiles, visible, visit, width;
   tiles = [];
-  invisible = null;
+  visible = null;
   zoom = Math.max(0, zoom);
   width = Math.pow(2, zoom);
   step = Math.max(.2, Math.min(1, zoom * .01));
   precision = projection.precision();
+  extent = projection.clipExtent();
   stream = projection.precision(960).stream({
     point: function() {
-      return invisible = false;
+      return visible = true;
     },
     lineStart: noop,
     lineEnd: noop,
@@ -25,60 +26,106 @@ module.exports = d3.quadTiles = function(projection, zoom) {
     polygonEnd: noop
   });
   visit = function(x1, y1, x2, y2) {
-    var i, j, k, l, m1, m2, ref, ref1, ref10, ref11, ref2, ref3, ref4, ref5, ref6, ref7, ref8, ref9, w, x, y, δ;
+    var m1, m2, p1, p2, p3, p4, run, w, x, y, δ;
     w = x2 - x1;
     m1 = mercatorφ(y1);
     m2 = mercatorφ(y2);
     δ = step * w;
-    invisible = true;
-    stream.polygonStart();
-    stream.lineStart();
-    for (x = i = ref = x1, ref1 = x2 + δ / 2, ref2 = δ; ref2 > 0 ? i < ref1 : i > ref1; x = i += ref2) {
-      if (!invisible) {
-        break;
+    visible = false;
+    run = function(a, b) {
+      var results, results1, results2, results3, x, y;
+      if (visible) {
+        return;
       }
-      stream.point(x, m1);
-    }
-    for (y = j = ref3 = m1, ref4 = m2 + δ / 2, ref5 = δ; ref5 > 0 ? j < ref4 : j > ref4; y = j += ref5) {
-      if (!invisible) {
-        break;
+      x = a[0];
+      y = a[1];
+      if (a[0] < b[0]) {
+        if (a[1] < b[1]) {
+          results = [];
+          while (x <= b[0] && y <= b[1] && !visible) {
+            stream.point(x, y);
+            x += δ;
+            results.push(y += δ);
+          }
+          return results;
+        } else {
+          results1 = [];
+          while (x <= b[0] && y >= b[1] && !visible) {
+            stream.point(x, y);
+            x += δ;
+            results1.push(y -= δ);
+          }
+          return results1;
+        }
+      } else {
+        if (a[1] < b[1]) {
+          results2 = [];
+          while (x >= b[0] && y <= b[1] && !visible) {
+            stream.point(x, y);
+            x -= δ;
+            results2.push(y += δ);
+          }
+          return results2;
+        } else {
+          results3 = [];
+          while (x >= b[0] && y >= b[1] && !visible) {
+            stream.point(x, y);
+            x -= δ;
+            results3.push(y -= δ);
+          }
+          return results3;
+        }
       }
-      stream.point(x2, y);
+    };
+    p1 = [x1, m1];
+    p2 = [x2, m1];
+    p3 = [x2, m2];
+    p4 = [x1, m2];
+    if (!visible) {
+      stream.polygonStart();
+      stream.lineStart();
+      run(p1, p2);
+      run(p2, p3);
+      run(p3, p4);
+      run(p4, p1);
+      stream.lineEnd();
+      stream.polygonEnd();
     }
-    for (x = k = ref6 = x2, ref7 = x1 - δ / 2, ref8 = -δ; ref8 > 0 ? k < ref7 : k > ref7; x = k += ref8) {
-      if (!invisible) {
-        break;
-      }
-      stream.point(x, m2);
+    if (!visible) {
+      stream.polygonStart();
+      stream.lineStart();
+      run(p1, p2);
+      run(p2, p3);
+      run(p3, p1);
+      stream.lineEnd();
+      stream.polygonEnd();
     }
-    for (y = l = ref9 = m2, ref10 = m1 - δ / 2, ref11 = -δ; ref11 > 0 ? l < ref10 : l > ref10; y = l += ref11) {
-      if (!invisible) {
-        break;
-      }
-      stream.point(x1, y);
+    if (!visible) {
+      stream.polygonStart();
+      stream.lineStart();
+      run(p1, p3);
+      run(p3, p4);
+      run(p4, p1);
+      stream.lineEnd();
+      stream.polygonEnd();
     }
-    if (invisible) {
-      stream.point(x1, m1);
-    }
-    stream.lineEnd();
-    stream.polygonEnd();
-    if (invisible) {
+    if (!visible) {
       return;
     }
     if (w <= 360 / width) {
       return tiles.push({
         type: 'Polygon',
         coordinates: [
-          d3.range(x1, x2 + δ / 2, δ).map(function(x) {
+          [].concat(d3.range(x1, x2 + δ / 2, δ).map(function(x) {
             return [x, y1];
-          }).concat([[x2, .5 * (y1 + y2)]]).concat(d3.range(x2, x1 - (δ / 2), -δ).map(function(x) {
+          })).concat([[x2, .5 * (y1 + y2)]]).concat(d3.range(x2, x1 - (δ / 2), -δ).map(function(x) {
             return [x, y2];
           })).concat([[x1, .5 * (y1 + y2)]]).concat([[x1, y1]]).map(function(d) {
             return [d[0], mercatorφ(d[1])];
           })
         ],
-        key: [(180 + x1) / 360 * width | 0, (180 + y1) / 360 * width | 0, zoom],
-        centroid: [.5 * (x1 + x2), .5 * (m1 + m2)]
+        key: [(180 + x1) / 360 * width | 0, (180 + y1) / 360 * width | 0, Math.log2(360 / w)],
+        centroid: [.5 * (x1 + x2), mercatorφ(.5 * (y1 + y2))]
       });
     } else {
       x = .5 * (x1 + x2);
