@@ -1,20 +1,6 @@
-tiletolnglat = (x, y, z) ->
-  n = Math.PI - 2 * Math.PI * y / Math.pow(2, z)
-  [
-    x / Math.pow(2, z) * 360 - 180
-    180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)))
-  ]
-
-subdivide = (a, b, n, f) ->
-  x = a[0]
-  dx = if a[0] is b[0] then 0 else b[0] - a[0]
-  y = a[1]
-  dy = if a[1] is b[1] then 0 else b[1] - a[1]
-  for i in [0...n].map((i) -> i / n)
-    f([x + i * dx,y + i * dy]) is true
-
-square = (x, y) ->
-  [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]]
+tiletolnglat = require 'tiletolnglat'
+subdivideline = require 'subdivideline'
+square = (x, y) -> [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]]
 
 module.exports = d3.quadTiles = (projection, options) ->
   options ?= {}
@@ -54,10 +40,10 @@ module.exports = d3.quadTiles = (projection, options) ->
       o = tiletolnglat i[0], i[1], z
       stream.point o[0], o[1]
       coords.push o
-    subdivide p[0], p[1], 10, check
-    subdivide p[1], p[2], 10, check
-    subdivide p[2], p[3], 10, check
-    subdivide p[3], p[0], 10, check
+    subdivideline p[0], p[1], 10, check
+    subdivideline p[1], p[2], 10, check
+    subdivideline p[2], p[3], 10, check
+    subdivideline p[3], p[0], 10, check
     stream.lineEnd()
     stream.polygonEnd()
 

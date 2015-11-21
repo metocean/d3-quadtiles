@@ -16,5 +16,9 @@
     "url": "https://github.com/metocean/d3-quadtiles/issues"
   },
   "readmeFilename": "README.md",
-  "homepage": "https://github.com/metocean/d3-quadtiles#readme"
+  "homepage": "https://github.com/metocean/d3-quadtiles#readme",
+  "dependencies": {
+    "subdivideline": "1.0.0",
+    "tiletolnglat": "1.0.0"
+  }
 }
