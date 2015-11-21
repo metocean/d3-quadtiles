@@ -10,7 +10,7 @@ square = function(x, y) {
 };
 
 module.exports = d3.quadTiles = function(projection, options) {
-  var dive, extent, fin, precision, projecttile, stream, tiles, visible, zoom;
+  var dive, extent, fin, isvisible, precision, projecttile, stream, tiles, visible, zoom;
   if (options == null) {
     options = {};
   }
@@ -32,7 +32,7 @@ module.exports = d3.quadTiles = function(projection, options) {
     polygonStart: function() {},
     polygonEnd: function() {}
   });
-  projecttile = function(x, y, z) {
+  isvisible = function(x, y, z) {
     var check, coords, p;
     p = square(x, y);
     coords = [];
@@ -56,43 +56,52 @@ module.exports = d3.quadTiles = function(projection, options) {
     }
     return coords;
   };
+  projecttile = function(x, y, z) {
+    var check, coords, p;
+    p = square(x, y);
+    coords = [];
+    check = function(i) {
+      return coords.push(tiletolnglat(i[0], i[1], z));
+    };
+    subdivideline(p[0], p[1], 10, check);
+    subdivideline(p[1], p[2], 10, check);
+    subdivideline(p[2], p[3], 10, check);
+    subdivideline(p[3], p[0], 10, check);
+    return coords;
+  };
   fin = false;
-  tiles = [
-    {
-      tile: [0, 0],
-      coords: projecttile(0, 0, 0)
-    }
-  ];
+  tiles = [[0, 0]];
   zoom = 0;
   dive = function() {
-    var coords, gen1, gen2, j, k, len, len1, nexttiles, ref;
-    nexttiles = [];
+    var gen1, gen2, gen2tiles, j, k, len, len1, ref;
+    gen2tiles = [];
     for (j = 0, len = tiles.length; j < len; j++) {
       gen1 = tiles[j];
-      ref = square(gen1.tile[0] * 2, gen1.tile[1] * 2);
+      ref = square(gen1[0] * 2, gen1[1] * 2);
       for (k = 0, len1 = ref.length; k < len1; k++) {
         gen2 = ref[k];
-        coords = projecttile(gen2[0], gen2[1], zoom + 1);
-        if (coords == null) {
+        if (!isvisible(gen2[0], gen2[1], zoom + 1)) {
           continue;
         }
-        nexttiles.push({
-          tile: gen2,
-          coords: coords
-        });
+        gen2tiles.push(gen2);
       }
     }
-    if (nexttiles.length > options.maxtiles) {
+    if (gen2tiles.length > options.maxtiles) {
       fin = true;
       return;
     }
-    tiles = nexttiles;
+    tiles = gen2tiles;
     return zoom++;
   };
   while (!fin && zoom <= options.maxzoom) {
     dive();
   }
   tiles = tiles.map(function(tile) {
+    return {
+      tile: tile,
+      coords: projecttile(tile[0], tile[1], zoom)
+    };
+  }).map(function(tile) {
     return {
       type: 'Polygon',
       coordinates: [tile.coords],

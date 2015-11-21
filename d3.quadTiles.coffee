@@ -29,9 +29,8 @@ module.exports = d3.quadTiles = (projection, options) ->
       polygonStart: ->
       polygonEnd: ->
 
-  projecttile = (x, y, z) ->
+  isvisible = (x, y, z) ->
     p = square x, y
-
     coords = []
     visible = no
     stream.polygonStart()
@@ -46,34 +45,46 @@ module.exports = d3.quadTiles = (projection, options) ->
     subdivideline p[3], p[0], 10, check
     stream.lineEnd()
     stream.polygonEnd()
-
     return null if !visible
-    return coords
+    coords
+
+  projecttile = (x, y, z) ->
+    p = square x, y
+    coords = []
+    check = (i) -> coords.push tiletolnglat i[0], i[1], z
+    subdivideline p[0], p[1], 10, check
+    subdivideline p[1], p[2], 10, check
+    subdivideline p[2], p[3], 10, check
+    subdivideline p[3], p[0], 10, check
+    coords
 
   fin = no
-  tiles = [{ tile: [0, 0], coords: projecttile 0, 0, 0 }]
+  tiles = [[0, 0]]
   zoom = 0
 
   dive = ->
-    nexttiles = []
+    gen2tiles = []
     for gen1 in tiles
-      for gen2 in square gen1.tile[0] * 2, gen1.tile[1] * 2
-        coords = projecttile gen2[0], gen2[1], zoom + 1
-        continue if !coords?
-        nexttiles.push tile: gen2, coords: coords
-    if nexttiles.length > options.maxtiles
+      for gen2 in square gen1[0] * 2, gen1[1] * 2
+        continue unless isvisible gen2[0], gen2[1], zoom + 1
+        gen2tiles.push gen2
+    if gen2tiles.length > options.maxtiles
       fin = yes
       return
-    tiles = nexttiles
+    tiles = gen2tiles
     zoom++
 
   dive() while !fin and zoom <= options.maxzoom
 
-  tiles = tiles.map (tile) ->
-    type: 'Polygon'
-    coordinates: [tile.coords]
-    key: [tile.tile[0], tile.tile[1], zoom]
-    centroid: tiletolnglat tile.tile[0] + 0.5, tile.tile[1] + 0.5, zoom
+  tiles = tiles
+    .map (tile) ->
+      tile: tile
+      coords: projecttile tile[0], tile[1], zoom
+    .map (tile) ->
+      type: 'Polygon'
+      coordinates: [tile.coords]
+      key: [tile.tile[0], tile.tile[1], zoom]
+      centroid: tiletolnglat tile.tile[0] + 0.5, tile.tile[1] + 0.5, zoom
 
   # Reset precision
   projection.precision precision
