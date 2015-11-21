@@ -1,144 +1,97 @@
-noop = ->
+tiletolnglat = (x, y, z) ->
+  n = Math.PI - 2 * Math.PI * y / Math.pow(2, z)
+  [
+    x / Math.pow(2, z) * 360 - 180
+    180 / Math.PI * Math.atan(0.5 * (Math.exp(n) - Math.exp(-n)))
+  ]
 
-mercatorφ = (y) ->
-  Math.atan(Math.exp(-y * Math.PI / 180)) * 360 / Math.PI - 90
+subdivide = (a, b, n, f) ->
+  x = a[0]
+  dx = if a[0] is b[0] then 0 else b[0] - a[0]
+  y = a[1]
+  dy = if a[1] is b[1] then 0 else b[1] - a[1]
+  for i in [0...n].map((i) -> i / n)
+    f([x + i * dx,y + i * dy]) is true
 
-module.exports = d3.quadTiles = (projection, zoom) ->
-  tiles = []
-  visible = null
-  zoom = Math.max 0, zoom
-  width = Math.pow 2, zoom
-  step = Math.max .2, Math.min 1, zoom * .01
+square = (x, y) ->
+  [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]]
+
+module.exports = d3.quadTiles = (projection, options) ->
+  options ?= {}
+  options.maxtiles ?= 16
+  options.maxzoom ?= 18
+
   precision = projection.precision()
   extent = projection.clipExtent()
+  # # Smaller extent for testing
+  # dx = 0.25 * (extent[1][0] - extent[0][0])
+  # dy = 0.25 * (extent[1][1] - extent[0][1])
+  # checkextent = [
+  #   [extent[0][0] + dx, extent[0][1] + dy]
+  #   [extent[1][0] - dx, extent[1][1] - dy]
+  # ]
+  # projection.clipExtent checkextent
+
+  visible = no
+
   stream = projection
     .precision 960
     .stream
       point: -> visible = yes
-      lineStart: noop
-      lineEnd: noop
-      polygonStart: noop
-      polygonEnd: noop
+      lineStart: ->
+      lineEnd: ->
+      polygonStart: ->
+      polygonEnd: ->
 
-  visit = (x1, y1, x2, y2) ->
-    w = x2 - x1
-    m1 = mercatorφ y1
-    m2 = mercatorφ y2
-    δ = step * w
+  projecttile = (x, y, z) ->
+    p = square x, y
 
+    coords = []
     visible = no
+    stream.polygonStart()
+    stream.lineStart()
+    check = (i) ->
+      o = tiletolnglat i[0], i[1], z
+      stream.point o[0], o[1]
+      coords.push o
+    subdivide p[0], p[1], 10, check
+    subdivide p[1], p[2], 10, check
+    subdivide p[2], p[3], 10, check
+    subdivide p[3], p[0], 10, check
+    stream.lineEnd()
+    stream.polygonEnd()
 
-    run = (a, b) ->
-      return if visible
-      x = a[0]
-      y = a[1]
-      if a[0] < b[0]
-        if a[1] < b[1]
-          while x <= b[0] and y <= b[1] and not visible
-            stream.point x, y
-            x += δ
-            y += δ
-        else
-          while x <= b[0] and y >= b[1] and not visible
-            stream.point x, y
-            x += δ
-            y -= δ
-      else
-        if a[1] < b[1]
-          while x >= b[0] and y <= b[1] and not visible
-            stream.point x, y
-            x -= δ
-            y += δ
-        else
-          while x >= b[0] and y >= b[1] and not visible
-            stream.point x, y
-            x -= δ
-            y -= δ
+    return null if !visible
+    return coords
 
-    # 1 -- 2
-    # |    |
-    # |    |
-    # 4 -- 3
-    p1 = [x1, m1]
-    p2 = [x2, m1]
-    p3 = [x2, m2]
-    p4 = [x1, m2]
+  fin = no
+  tiles = [{ tile: [0, 0], coords: projecttile 0, 0, 0 }]
+  zoom = 0
 
-    if !visible
-      # search for clip region
-
-      # 1 -- 2
-      # |    |
-      # |    |
-      # 4 -- 3
-      stream.polygonStart()
-      stream.lineStart()
-      run p1, p2
-      run p2, p3
-      run p3, p4
-      run p4, p1
-      stream.lineEnd()
-      stream.polygonEnd()
-
-    if !visible
-      # 1 -- 2
-      #   \  |
-      #    \ |
-      # 4    3
-      stream.polygonStart()
-      stream.lineStart()
-      run p1, p2
-      run p2, p3
-      run p3, p1
-      stream.lineEnd()
-      stream.polygonEnd()
-
-    if !visible
-      # 1    2
-      # | \
-      # |  \
-      # 4 -- 3
-      stream.polygonStart()
-      stream.lineStart()
-      run p1, p3
-      run p3, p4
-      run p4, p1
-      stream.lineEnd()
-      stream.polygonEnd()
-
-    if !visible
-      #console.log "Rejecting #{(180 + x1) / 360 * width | 0}, #{(180 + y1) / 360 * width | 0}, #{Math.log2(360/w)}"
+  dive = ->
+    nexttiles = []
+    for gen1 in tiles
+      for gen2 in square gen1.tile[0] * 2, gen1.tile[1] * 2
+        coords = projecttile gen2[0], gen2[1], zoom + 1
+        continue if !coords?
+        nexttiles.push tile: gen2, coords: coords
+    if nexttiles.length > options.maxtiles
+      fin = yes
       return
+    tiles = nexttiles
+    zoom++
 
-    if w <= 360 / width
-      tiles.push
-        type: 'Polygon'
-        coordinates: [
-          []
-            .concat(d3.range(x1, x2 + δ / 2, δ).map((x) -> [x, y1]))
-            .concat([[x2, .5 * (y1 + y2)]])
-            .concat(d3.range(x2, x1 - (δ / 2), -δ).map((x) -> [x, y2]))
-            .concat([[x1, .5 * (y1 + y2)]])
-            .concat([[x1, y1]]).map((d) -> [d[0], mercatorφ(d[1])])
-        ]
-        key: [
-          (180 + x1) / 360 * width | 0
-          (180 + y1) / 360 * width | 0
-          Math.log2(360 / w)
-        ]
-        centroid: [
-          .5 * (x1 + x2)
-          mercatorφ(.5 * (y1 + y2))
-        ]
-    else
-      #console.log "Descending #{(180 + x1) / 360 * width}, #{(180 + y1) / 360 * width}, #{Math.log2(360 / w)}"
-      x = .5 * (x1 + x2)
-      y = .5 * (y1 + y2)
-      visit x1, y1, x, y
-      visit x, y1, x2, y
-      visit x1, y, x, y2
-      visit x, y, x2, y2
+  dive() while !fin and zoom <= options.maxzoom
 
-  visit -180, -180, 180, 180
+  tiles = tiles.map (tile) ->
+    type: 'Polygon'
+    coordinates: [tile.coords]
+    key: [tile.tile[0], tile.tile[1], zoom]
+    centroid: tiletolnglat tile.tile[0] + 0.5, tile.tile[1] + 0.5, zoom
+
+  # Reset precision
   projection.precision precision
-  tiles
+  projection.clipExtent extent
+
+  zoom: zoom
+  tiles: tiles
