@@ -10,7 +10,7 @@ square = function(x, y) {
 };
 
 module.exports = d3.quadTiles = function(projection, options) {
-  var dive, extent, fin, isvisible, precision, projecttile, stream, tiles, visible, zoom;
+  var alltiles, dive, extent, fin, isvisible, precision, projecttile, stream, tiles, visible, zoom;
   if (options == null) {
     options = {};
   }
@@ -71,6 +71,8 @@ module.exports = d3.quadTiles = function(projection, options) {
   };
   fin = false;
   tiles = [[0, 0]];
+  alltiles = [];
+  alltiles.push(tiles);
   zoom = 0;
   dive = function() {
     var gen1, gen2, gen2tiles, j, k, len, len1, ref;
@@ -91,6 +93,7 @@ module.exports = d3.quadTiles = function(projection, options) {
       return;
     }
     tiles = gen2tiles;
+    alltiles.push(gen2tiles);
     return zoom++;
   };
   while (!fin && zoom <= options.maxzoom) {
@@ -113,6 +116,7 @@ module.exports = d3.quadTiles = function(projection, options) {
   projection.clipExtent(extent);
   return {
     zoom: zoom,
-    tiles: tiles
+    tiles: tiles,
+    all: alltiles
   };
 };

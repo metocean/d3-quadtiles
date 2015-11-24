@@ -60,6 +60,8 @@ module.exports = d3.quadTiles = (projection, options) ->
 
   fin = no
   tiles = [[0, 0]]
+  alltiles = []
+  alltiles.push tiles
   zoom = 0
 
   dive = ->
@@ -72,6 +74,7 @@ module.exports = d3.quadTiles = (projection, options) ->
       fin = yes
       return
     tiles = gen2tiles
+    alltiles.push gen2tiles
     zoom++
 
   dive() while !fin and zoom <= options.maxzoom
@@ -92,3 +95,4 @@ module.exports = d3.quadTiles = (projection, options) ->
 
   zoom: zoom
   tiles: tiles
+  all: alltiles
