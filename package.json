@@ -1,6 +1,6 @@
 {
   "name": "d3-quadtiles",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "description": "",
   "main": "d3.quadTiles.js",
   "scripts": {
