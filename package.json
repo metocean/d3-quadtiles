@@ -2,7 +2,7 @@
   "name": "d3-quadtiles",
   "version": "2.2.1",
   "description": "",
-  "main": "d3.quadTiles.js",
+  "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

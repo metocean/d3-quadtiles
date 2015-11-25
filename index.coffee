@@ -4,6 +4,18 @@ tiletolnglat = require 'tiletolnglat'
 subdivideline = require 'subdivideline'
 square = (x, y) -> [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]]
 
+# Calculate 40 screen coordinates for the boundary of the tile
+# 10 points along each side
+projecttile = (x, y, z) ->
+  p = square x, y
+  coords = []
+  calc = (i) -> coords.push tiletolnglat i[0], i[1], z
+  subdivideline p[0], p[1], 10, calc
+  subdivideline p[1], p[2], 10, calc
+  subdivideline p[2], p[3], 10, calc
+  subdivideline p[3], p[0], 10, calc
+  coords
+
 module.exports = d3.quadTiles = (projection, options) ->
   options ?= {}
   options.maxtiles ?= 16
@@ -11,6 +23,7 @@ module.exports = d3.quadTiles = (projection, options) ->
 
   precision = projection.precision()
   extent = projection.clipExtent()
+
   # # Smaller extent for testing
   # dx = 0.25 * (extent[1][0] - extent[0][0])
   # dy = 0.25 * (extent[1][1] - extent[0][1])
@@ -20,8 +33,10 @@ module.exports = d3.quadTiles = (projection, options) ->
   # ]
   # projection.clipExtent checkextent
 
+  # Somewhat unobvious global used for visibility checking
   visible = no
 
+  # Geometry stream used for visibility checking
   stream = projection
     .precision 960
     .stream
@@ -31,34 +46,23 @@ module.exports = d3.quadTiles = (projection, options) ->
       polygonStart: ->
       polygonEnd: ->
 
+  # Check the visibility of a tile x, y, z
+  # true = visible, false = not visible
   isvisible = (x, y, z) ->
     p = square x, y
-    coords = []
     visible = no
     stream.polygonStart()
     stream.lineStart()
     check = (i) ->
       o = tiletolnglat i[0], i[1], z
       stream.point o[0], o[1]
-      coords.push o
     subdivideline p[0], p[1], 10, check
     subdivideline p[1], p[2], 10, check
     subdivideline p[2], p[3], 10, check
     subdivideline p[3], p[0], 10, check
     stream.lineEnd()
     stream.polygonEnd()
-    return null if !visible
-    coords
-
-  projecttile = (x, y, z) ->
-    p = square x, y
-    coords = []
-    check = (i) -> coords.push tiletolnglat i[0], i[1], z
-    subdivideline p[0], p[1], 10, check
-    subdivideline p[1], p[2], 10, check
-    subdivideline p[2], p[3], 10, check
-    subdivideline p[3], p[0], 10, check
-    coords
+    visible
 
   fin = no
   currenttiles = [[0, 0]]
@@ -66,6 +70,7 @@ module.exports = d3.quadTiles = (projection, options) ->
   alltiles.push currenttiles
   zoom = 0
 
+  # Perform one zoom level pass
   dive = ->
     nexttiles = []
     for gen1 in currenttiles
@@ -79,18 +84,15 @@ module.exports = d3.quadTiles = (projection, options) ->
     alltiles.push nexttiles
     zoom++
 
+  # Depth first parsing of zoom depths
   dive() while !fin and zoom <= options.maxzoom
 
-  generatetile = (tile, z) ->
-    tile =
-      tile: tile
-      coords: projecttile tile[0], tile[1], z
+  # Build the geojson tile format
+  alltiles = alltiles.map (tiles, z) -> tiles.map (tile) ->
     type: 'Polygon'
-    coordinates: [tile.coords]
-    key: [tile.tile[0], tile.tile[1], z]
-    centroid: tiletolnglat tile.tile[0] + 0.5, tile.tile[1] + 0.5, z
-
-  alltiles = alltiles.map (tiles, z) -> tiles.map (tile) -> generatetile tile, z
+    key: [tile[0], tile[1], z]
+    coordinates: [projecttile tile[0], tile[1], z]
+    centroid: tiletolnglat tile[0] + 0.5, tile[1] + 0.5, z
 
   # Reset precision
   projection.precision precision
