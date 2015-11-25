@@ -16,11 +16,14 @@ var quadtiles = require('d3-quadtiles');
 var quad = quadtiles(projection, { maxtiles: 32, maxzoom: 18 });
 console.log(quad.zoom); // e.g. 6
 console.log(quad.tiles); // e.g. [zoom6tile1, zoom6tile2, zoom6tile3..]
-console.log(quad.all); // e.g. [[zoom0tile1], [zoom1tile1, zoom1tile2], ...]  // indexed by zoom level
+// quad.all is indexed by zoom level
+console.log(quad.all); // e.g. [[zoom0tile1], [zoom1tile1, zoom1tile2], ...]
 // tile = {
 //   type: "Polygon",
 //   key: [x, y, z], // tilespace coordinates
-//   points: [[[lng, lat], [lng, lat], [lng, lat], ...]], // 10 points along each side of the tile starting top left and going right. 40 points total
+//   // points created as 10 points along each side of the tile starting top left and going right
+//   // 40 points total
+//   points: [[[lng, lat], [lng, lat], [lng, lat], ...]],
 //   centroid: [lng, lat] // coordinates of centroid
 // }
 ```
