@@ -1,3 +1,5 @@
+d3 = require 'd3'
+
 tiletolnglat = require 'tiletolnglat'
 subdivideline = require 'subdivideline'
 square = (x, y) -> [[x, y], [x + 1, y], [x + 1, y + 1], [x, y + 1]]
@@ -59,40 +61,41 @@ module.exports = d3.quadTiles = (projection, options) ->
     coords
 
   fin = no
-  tiles = [[0, 0]]
+  currenttiles = [[0, 0]]
   alltiles = []
-  alltiles.push tiles
+  alltiles.push currenttiles
   zoom = 0
 
   dive = ->
-    gen2tiles = []
-    for gen1 in tiles
+    nexttiles = []
+    for gen1 in currenttiles
       for gen2 in square gen1[0] * 2, gen1[1] * 2
         continue unless isvisible gen2[0], gen2[1], zoom + 1
-        gen2tiles.push gen2
-    if gen2tiles.length > options.maxtiles
+        nexttiles.push gen2
+    if nexttiles.length > options.maxtiles
       fin = yes
       return
-    tiles = gen2tiles
-    alltiles.push gen2tiles
+    currenttiles = nexttiles
+    alltiles.push nexttiles
     zoom++
 
   dive() while !fin and zoom <= options.maxzoom
 
-  tiles = tiles
-    .map (tile) ->
+  generatetile = (tile, z) ->
+    tile =
       tile: tile
-      coords: projecttile tile[0], tile[1], zoom
-    .map (tile) ->
-      type: 'Polygon'
-      coordinates: [tile.coords]
-      key: [tile.tile[0], tile.tile[1], zoom]
-      centroid: tiletolnglat tile.tile[0] + 0.5, tile.tile[1] + 0.5, zoom
+      coords: projecttile tile[0], tile[1], z
+    type: 'Polygon'
+    coordinates: [tile.coords]
+    key: [tile.tile[0], tile.tile[1], z]
+    centroid: tiletolnglat tile.tile[0] + 0.5, tile.tile[1] + 0.5, z
+
+  alltiles = alltiles.map (tiles, z) -> tiles.map (tile) -> generatetile tile, z
 
   # Reset precision
   projection.precision precision
   projection.clipExtent extent
 
   zoom: zoom
-  tiles: tiles
+  tiles: alltiles[zoom]
   all: alltiles
