@@ -1,6 +1,6 @@
 {
   "name": "d3-quadtiles",
-  "version": "2.2.2",
+  "version": "2.2.3",
   "description": "Calculate visble tiles on a d3 geo projection",
   "main": "index.js",
   "scripts": {
