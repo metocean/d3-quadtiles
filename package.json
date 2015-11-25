@@ -19,7 +19,7 @@
   "homepage": "https://github.com/metocean/d3-quadtiles#readme",
   "dependencies": {
     "d3": "3.5.9",
-    "subdivideline": "1.0.0",
+    "subdivideline": "1.1.0",
     "tiletolnglat": "1.0.0"
   }
 }
